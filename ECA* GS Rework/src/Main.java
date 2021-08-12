@@ -109,7 +109,7 @@ public class Main implements Runnable{
 					TempIndex = i;
 				}
 			}
-			if (Current == End) {
+			if (graph.getNode(Current.getId()) == graph.getNode(End.getId())) {
 				Temp = graph.getNode(Current.getId());
 				BestPath.push(Current);
 				graph.getNode(End.getId()).setAttribute("Gn", Current.getNumber("Gn") + HDist(Current, End));
@@ -232,7 +232,7 @@ public class Main implements Runnable{
 								break outer;
 							}
 							RCP.push(graph.getNode(RCp.getId()));
-							if(rc == End) {//Printing results section
+							if(graph.getNode(rc.getId()) == graph.getNode(End.getId())) {//Printing results section
 								Start.setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 								End.setAttribute("ui.style", " fill-color: rgb(255,0,0);");
 								timeEnd = System.currentTimeMillis();
