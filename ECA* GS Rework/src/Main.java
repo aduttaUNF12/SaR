@@ -125,6 +125,10 @@ public class Main implements Runnable{
 						+ HDist(graph.getNode(Current.getId()), graph.getNode(End.getId())));
 				Node Previous = graph.getNode(((Node) Current.getAttribute("Previous")).getId());
 				while(!graph.getNode(Current.getId()).getAttribute("Previous").equals(Initial)) {//Infinite Loop is here. Not always recognizing initial for some reason
+				// I do not see where the "previous" attribute is set to Initial.
+				// I believe you already know the atrt node's ID, right? Then, why don't you do something like the following:
+				// while(graph.getNode(Current.getId()).getAttribute("Previous").getId() != Initial.getId()) {
+				
 					System.out.println("test");
 					Cost = Cost + graph.getNode(Current.getId()).getNumber("Hn");
 					BestPath.push(graph.getNode(Previous.getId()));
