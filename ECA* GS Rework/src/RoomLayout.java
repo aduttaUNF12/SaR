@@ -37,6 +37,7 @@ public class RoomLayout {
 			n.setAttribute("Gn", 0);
 			n.setAttribute("rcH", 0);
 			n.setAttribute("Parent", null);
+			n.setAttribute("ui.label", n.getId());
 		});
 		
 		

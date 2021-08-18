@@ -39,6 +39,8 @@ public class Main implements Runnable{
 		System.setProperty("org.graphstream.ui", "swing");
 		new Thread (new Main()).start();
 	}//End of main
+	
+	
 	public static Node NextStation(Node x, Node y) {//Method for finding the next RC point
 		Node RCp = graph.getNode(x.getId());
 		Node End = graph.getNode(y.getId());
@@ -76,6 +78,8 @@ public class Main implements Runnable{
 		graph.getNode(rc.getId()).setAttribute("ui.style", "fill-color: rgb(255,203,182);");
 		return graph.getNode(rc.getId());
 	}
+	
+	
 	public static double HDist(Node x, Node y) {//Method for Finding distance between two Nodes
 		double H;
 		Node Current = graph.getNode(x.getId());
@@ -91,6 +95,7 @@ public class Main implements Runnable{
 		//return H;
 		return Math.hypot(dx, dy);
 	}
+	
 	public static Node PathFind(Node x, Node y) { //Method for Path finding from Current to RC
 		int TempIndex = 0;
 		Node Current = graph.getNode(x.getId());
@@ -106,7 +111,8 @@ public class Main implements Runnable{
 			}
 			TempIndex = 0;
 			Current = graph.getNode(Open.get(0).getId());
-			for(int i = 0; i < Open.size(); i++) {
+			//finds the least FN node in OPEN
+			for(int i = 1; i < Open.size(); i++) {
 				graph.getNode(Open.get(i).getId()).setAttribute("Hn", SetHn(graph.getNode(Open.get(i).getId()), graph.getNode((End).getId())));
 				graph.getNode(Open.get(i).getId()).setAttribute("Fn", SetFn(graph.getNode(Open.get(i).getId())));
 				graph.getNode(Current.getId()).setAttribute("Hn", SetHn(graph.getNode(Current.getId()), graph.getNode(End.getId())));
@@ -119,23 +125,28 @@ public class Main implements Runnable{
 					TempIndex = i;
 				}
 			}
+			//checks if the minimum FN node in OPEN the goal node or not
 			if (graph.getNode(Current.getId()).getId() == graph.getNode(End.getId()).getId()) {
 				//Initial = graph.getNode(x.getId());
+				System.out.println("End node is "+ graph.getNode(End.getId()).getId());
 				Temp = graph.getNode(Current.getId());
 				BestPath.push(graph.getNode(Current.getId()));
+				// AD: this next line seems to be wrong as the HDist between current and End is 0 -- they are the SAME NODES
 				graph.getNode(End.getId()).setAttribute("Gn", graph.getNode(Current.getId()).getNumber("Gn") 
 						+ HDist(graph.getNode(Current.getId()), graph.getNode(End.getId())));
 				//Node Previous = graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId());
 				Node Previous =  graph.getNode(Current.getId());
 				//while(!graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId()).equals(graph.getNode(Initial.getId()))) {//Infinite Loop is here. Not always recognizing initial for some reason
-				while(graph.getNode(Previous.getId()).getId() != graph.getNode(Initial.getId()).getId()){	
-					System.out.println("test "+ graph.getNode(Previous.getId()).getId() +" and "+ graph.getNode(Initial.getId()).getId());
+				//while(graph.getNode(Previous.getId()).getId() != graph.getNode(Initial.getId()).getId()){	
+				while(Previous.getAttribute("Parent") != Initial.getId()) {
+					//System.out.println("test "+ graph.getNode(Previous.getId()).getId() +" and "+ graph.getNode(Initial.getId()).getId());
 					Cost = Cost + graph.getNode(Previous.getId()).getNumber("Hn");
 					BestPath.push(graph.getNode(Previous.getId()));
 					//graph.getNode(Current.getId()).getEdgeBetween(graph.getNode(Previous.getId())).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 					graph.getNode(Previous.getId()).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 					//Previous =  graph.getNode(((Node) Previous.getAttribute("Previous")).getId());
 					Previous = graph.getNode((String) Previous.getAttribute("Parent"));
+					//System.out.println("Previous node is: "+Previous.getId());
 					//Current = graph.getNode(Previous.getId());
 //					if(Previous == null) {
 //						System.out.println("Previous is null");
@@ -161,7 +172,7 @@ public class Main implements Runnable{
 			System.out.println("Fuel: "+(B));
 			Temp = graph.getNode(Open.get(TempIndex).getId());
 			Open.remove(graph.getNode(Current.getId()));
-			//Closed.push(graph.getNode(Current.getId()));
+			Closed.push(graph.getNode(Current.getId()));
 			//int NeighborCount = graph.getNode(Current.getId()).getDegree();
 			Node Neighbor;
 			Stream<Node> Neighborlist = graph.getNode(Current.getId()).neighborNodes();//Look into converting Stream to ArrayList
@@ -170,16 +181,18 @@ public class Main implements Runnable{
 				//if(graph.getNode(Current.getId()).getEdge(i) == null) continue;
 				//Neighbor = graph.getNode(graph.getNode(Current.getId()).getEdge(i).getOpposite(graph.getNode(Current.getId())).getId());
 				Neighbor = IT.next();
-				if(Neighbor == null) continue;
-				graph.getNode(Neighbor.getId()).setAttribute("Parent", graph.getNode(Current.getId()).getId());
+				if(Neighbor == null || Closed.contains(graph.getNode(Neighbor.getId()))) continue;
+				graph.getNode(Neighbor.getId()).setAttribute("Parent", Current.getId());
+				System.out.println("parent of Node "+Neighbor.getId()+" is "+graph.getNode(Neighbor.getId()).getAttribute("Parent"));
 				double Gn = graph.getNode(Current.getId()).getNumber("Gn");
 				graph.getNode(Neighbor.getId()).setAttribute("Gn", Gn + HDist(graph.getNode(Current.getId()), graph.getNode(Neighbor.getId())));
 				if (Open.contains(graph.getNode(Neighbor.getId()))) {
 						continue;
+						// AD: we should be updating the cost here of neighbor if a better cost path is found, right?
 				}else {
-					if(Closed.contains(graph.getNode(Neighbor.getId()))) {
-						continue;
-					}
+				//					if(Closed.contains(graph.getNode(Neighbor.getId()))) {
+				//						continue;
+				//					}
 					graph.getNode(Neighbor.getId()).setAttribute("ui.style", "fill-color: rgb(0,255,0);");
 					Open.push(graph.getNode(Neighbor.getId()));
 				}
@@ -194,6 +207,7 @@ public class Main implements Runnable{
 		System.out.println("PathFind Failed");
 		return null;
 	}
+	
 	private static double SetHn(Node x, Node y) {//Method for Setting Heuristic Value
 		Node Current = graph.getNode(x.getId());
 		Node End = graph.getNode(y.getId());
@@ -206,6 +220,7 @@ public class Main implements Runnable{
 		//return D * (dx + dy) + (D2 - 2 * D) * Math.min(dx, dy);
 		return Math.hypot(dx, dy);
 	}
+	
 	private static double SetFn(Node x) {//Method for Setting F Value
 		Node Current = graph.getNode(x.getId());
 		double Hn = graph.getNode(Current.getId()).getNumber("Hn");
@@ -215,6 +230,7 @@ public class Main implements Runnable{
 		//System.out.println("This is the Fn in the method Fn "+ (Hn + Gn));
 		return Hn + Gn;
 	}
+	
 	public void run(){//Main Method
 		Scanner scan = new Scanner(System.in);
 		while(true) {
