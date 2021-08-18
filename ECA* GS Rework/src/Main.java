@@ -6,6 +6,7 @@ import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.SingleGraph;
 import org.graphstream.algorithm.Toolkit;
 import java.util.Stack;
+import java.util.stream.Stream;
 /*
  * Currently have a slight pause after the graph generates so that there is time to see starting point and end point.
  * 
@@ -106,8 +107,8 @@ public class Main implements Runnable{
 			TempIndex = 0;
 			Current = graph.getNode(Open.get(0).getId());
 			for(int i = 0; i < Open.size(); i++) {
-				Open.get(i).setAttribute("Hn", SetHn(Open.get(i), End));
-				Open.get(i).setAttribute("Fn", SetFn(Open.get(i)));
+				graph.getNode(Open.get(i).getId()).setAttribute("Hn", SetHn(graph.getNode(Open.get(i).getId()), graph.getNode((End).getId())));
+				graph.getNode(Open.get(i).getId()).setAttribute("Fn", SetFn(graph.getNode(Open.get(i).getId())));
 				graph.getNode(Current.getId()).setAttribute("Hn", SetHn(graph.getNode(Current.getId()), graph.getNode(End.getId())));
 				graph.getNode(Current.getId()).setAttribute("Fn", SetFn(graph.getNode(Current.getId())));
 				//System.out.println("This the Fn back in the loop: "+ graph.getNode(Current.getId()).getNumber("Fn"));
@@ -118,34 +119,40 @@ public class Main implements Runnable{
 					TempIndex = i;
 				}
 			}
-			if (graph.getNode(Current.getId()).equals(graph.getNode(End.getId()))) {
+			if (graph.getNode(Current.getId()).getId() == graph.getNode(End.getId()).getId()) {
+				//Initial = graph.getNode(x.getId());
 				Temp = graph.getNode(Current.getId());
 				BestPath.push(graph.getNode(Current.getId()));
 				graph.getNode(End.getId()).setAttribute("Gn", graph.getNode(Current.getId()).getNumber("Gn") 
 						+ HDist(graph.getNode(Current.getId()), graph.getNode(End.getId())));
-				Node Previous = graph.getNode(((Node) Current.getAttribute("Previous")).getId());
-				while(!graph.getNode(Current.getId()).getAttribute("Previous").equals(Initial)) {//Infinite Loop is here. Not always recognizing initial for some reason
-				// I do not see where the "previous" attribute is set to Initial.
-				// I believe you already know the atrt node's ID, right? Then, why don't you do something like the following:
-				// while(graph.getNode(Current.getId()).getAttribute("Previous").getId() != Initial.getId()) {
-				
-					System.out.println("test");
-					Cost = Cost + graph.getNode(Current.getId()).getNumber("Hn");
+				//Node Previous = graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId());
+				Node Previous =  graph.getNode(Current.getId());
+				//while(!graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId()).equals(graph.getNode(Initial.getId()))) {//Infinite Loop is here. Not always recognizing initial for some reason
+				while(graph.getNode(Previous.getId()).getId() != graph.getNode(Initial.getId()).getId()){	
+					System.out.println("test "+ graph.getNode(Previous.getId()).getId() +" and "+ graph.getNode(Initial.getId()).getId());
+					Cost = Cost + graph.getNode(Previous.getId()).getNumber("Hn");
 					BestPath.push(graph.getNode(Previous.getId()));
 					//graph.getNode(Current.getId()).getEdgeBetween(graph.getNode(Previous.getId())).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 					graph.getNode(Previous.getId()).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
-					Current = graph.getNode(Previous.getId());
+					//Previous =  graph.getNode(((Node) Previous.getAttribute("Previous")).getId());
+					Previous = graph.getNode((String) Previous.getAttribute("Parent"));
+					//Current = graph.getNode(Previous.getId());
+//					if(Previous == null) {
+//						System.out.println("Previous is null");
+//						return graph.getNode(Temp.getId());
+//					}
 				}
-
 				return graph.getNode(Temp.getId());
 			}
+			/*
 			if(graph.getNode(Current.getId()).getAttribute("Previous") != null) {
-				Node Previous = graph.getNode(((Node) Current.getAttribute("Previous")).getId());
+				Node Previous = graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId());
 				double Pcost = graph.getNode(Previous.getId()).getNumber("Cost");
 				graph.getNode(Current.getId()).setAttribute("Cost", Pcost+ HDist(graph.getNode(Current.getId()), graph.getNode(Previous.getId())));
 			}else {
 				graph.getNode(Current.getId()).setAttribute("Cost", 0);
 			}
+			*/
 			if(RC.contains(graph.getNode(Current.getId()))) {
 				B = FullTank;
 			}else {
@@ -155,12 +162,16 @@ public class Main implements Runnable{
 			Temp = graph.getNode(Open.get(TempIndex).getId());
 			Open.remove(graph.getNode(Current.getId()));
 			//Closed.push(graph.getNode(Current.getId()));
-			int NeighborCount = graph.getNode(Current.getId()).getDegree();
+			//int NeighborCount = graph.getNode(Current.getId()).getDegree();
 			Node Neighbor;
-			for(int i = 0; i < NeighborCount; i++){
-				if(graph.getNode(Current.getId()).getEdge(i) == null) continue;
-				Neighbor = graph.getNode(graph.getNode(Current.getId()).getEdge(i).getOpposite(graph.getNode(Current.getId())).getId());
-				graph.getNode(Neighbor.getId()).setAttribute("Previous", graph.getNode(Current.getId()));
+			Stream<Node> Neighborlist = graph.getNode(Current.getId()).neighborNodes();//Look into converting Stream to ArrayList
+			Iterator<Node> IT = Neighborlist.iterator();
+			while(IT.hasNext()){
+				//if(graph.getNode(Current.getId()).getEdge(i) == null) continue;
+				//Neighbor = graph.getNode(graph.getNode(Current.getId()).getEdge(i).getOpposite(graph.getNode(Current.getId())).getId());
+				Neighbor = IT.next();
+				if(Neighbor == null) continue;
+				graph.getNode(Neighbor.getId()).setAttribute("Parent", graph.getNode(Current.getId()).getId());
 				double Gn = graph.getNode(Current.getId()).getNumber("Gn");
 				graph.getNode(Neighbor.getId()).setAttribute("Gn", Gn + HDist(graph.getNode(Current.getId()), graph.getNode(Neighbor.getId())));
 				if (Open.contains(graph.getNode(Neighbor.getId()))) {

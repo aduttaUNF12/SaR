@@ -36,7 +36,7 @@ public class RoomLayout {
 			n.setAttribute("Hn", 0);
 			n.setAttribute("Gn", 0);
 			n.setAttribute("rcH", 0);
-			n.setAttribute("Previous", null);
+			n.setAttribute("Parent", null);
 		});
 		
 		
