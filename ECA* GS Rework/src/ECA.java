@@ -5,25 +5,31 @@ import org.graphstream.graph.Graph;
 import org.graphstream.graph.Node;
 import org.graphstream.graph.implementations.SingleGraph;
 import org.graphstream.algorithm.Toolkit;
-import java.util.Stack;
+
 import java.util.stream.Stream;
 /*
  * Currently have a slight pause after the graph generates so that there is time to see starting point and end point.
  * 
  * Current Issues:
- * -Once a RC station has been given, path finding to the End point doesn't work. Doesn't recognize End point and explores over it.
- * -Will still randomly freeze, not certain it is an infinite loop as I have tested them all. 
+ * -The visual and numerical ID's of the nodes are not always correct. While functionality is not affected, they can vary by factors of 10.
+ * 		IE:
+ * 			Instead of Nodes 0-9, they would be 40-49.
+ * 		The randomness of this bug makes me think it has something to do with old graph ID's still in memory after a test run
+ * -There is an infinite Loop somewhere that it can randomly hit. Have not checked as of this moment
+ * -Values for Fuel, RCpercentage, and Node distance edge generation need to be tuned for actual testing.
+ * 
  * -Not path finding optimally currently. Still working on the evaluation of the heuristics to work on this.
  */
-public class Main implements Runnable{
+public class ECA{
 	static int NodeCount;
 	public static Stack <Node> Open = new Stack<>();
 	public static Stack <Node> Closed = new Stack<>();
 	public static Stack <Node> BestPath = new Stack<>();
 	public static Stack <Node> RC = new Stack<>();
 	public static Stack <Node> RCP = new Stack <>();
-	public static double FullTank = 1;
+	public static double FullTank = 10;
 	public static double RCpercentage = .7;
+	public static double EdgeThreshold = .3;
 	public static int Trials = 1;
 	public static double Cost = 0;
 	public static double timeStart = 0;
@@ -35,9 +41,86 @@ public class Main implements Runnable{
 	public static double B = FullTank;
 	public static int k = 0;
 	public static Graph graph = new SingleGraph("random euclidean");
-	public static void main(String[] args) {
+	public static void main(int TourStart, int TourEnd) {
 		System.setProperty("org.graphstream.ui", "swing");
-		new Thread (new Main()).start();
+		Open.clear();
+		Closed.clear();
+		BestPath.clear();
+		timeStart = System.currentTimeMillis();
+		Node Start = graph.getNode(TourStart);
+		Node End = graph.getNode(TourEnd);
+		Node RCp = null;
+		Boolean EndFound = false;
+		Start.setAttribute("Hn", SetHn(graph.getNode(Start.getId()), graph.getNode(End.getId())));
+		Open.push(graph.getNode(Start.getId()));
+		graph.nodes().forEach(n ->{
+			graph.getNode(n.getId()).setAttribute("Hn", SetHn(graph.getNode(n.getId()), graph.getNode(End.getId())));//Sets Heuristic Values
+			if(graph.getNode(n.getId()).getNumber("ID") == 3) {
+				RC.push(graph.getNode(n.getId()));
+			}
+		});
+		RCp = graph.getNode(0);
+		Node Current = graph.getNode(0);
+		Node rc = null;
+		outer:
+		while(true) {//Main Loop to run through
+			rc = graph.getNode(NextStation(graph.getNode(RCp.getId()), graph.getNode(End.getId())).getId());
+			if(graph.getNode(rc.getId()) == null) {
+				EndFound = false;
+				break outer;
+			}
+			graph.nodes().forEach(n ->{
+				n.setAttribute("Hn", SetHn(graph.getNode(n.getId()), graph.getNode(End.getId())));//Sets Heuristic Values
+			});
+			graph.getNode(Current.getId()).setAttribute("Cost", 0);
+			Current = graph.getNode(PathFind(graph.getNode(Current.getId()), graph.getNode(rc.getId())).getId()); //Gets the Next RC point
+			if(graph.getNode(Current.getId()) == null) {
+				EndFound = false;
+				break outer;
+			}
+			RCP.push(graph.getNode(RCp.getId()));
+			if(graph.getNode(rc.getId()).equals(graph.getNode(End.getId()))) {//Printing results section
+				graph.getNode(Start.getId()).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
+				graph.getNode(End.getId()).setAttribute("ui.style", " fill-color: rgb(255,0,0);");
+				timeEnd = System.currentTimeMillis();
+				timeRun = timeEnd - timeStart;
+				System.out.println("Found End");
+				System.out.println("BestPath: ");
+				while(BestPath.isEmpty() == false) {
+					Node Temp = BestPath.pop();
+					System.out.println(Temp.getId());
+				}
+				System.out.println("Best Path Cost  = "+ graph.getNode(End.getId()).getNumber("Gn"));
+				System.out.println("Run Time = " + timeRun);
+				System.out.println("Stations Visted = "+StationCounter);
+				EndFound = true;
+				break outer;
+			}
+			RCp = graph.getNode(rc.getId());
+			Current = graph.getNode(rc.getId());
+			StationCounter++;
+			RC.remove(RCindex);
+			B = FullTank;
+			Open.clear();
+			Closed.clear();
+			try {
+				Thread.sleep(100);
+			} catch( InterruptedException e) {
+				e.printStackTrace();
+			}
+		}
+		RC.clear();
+		Closed.clear();
+		Open.clear();
+		RCP.clear();
+		BestPath.clear();
+		timeEnd = 0;
+		timeEnd = 0;
+		timeRun = 0;
+		StationCounter = 0;
+		if(EndFound == false) {
+			System.out.println("No Solution");
+		}
 	}//End of main
 	
 	
@@ -91,8 +174,6 @@ public class Main implements Runnable{
 		double dx = Math.abs(Currentrelative[0] - Endrelative[0]);
 		double dy = Math.abs(Currentrelative[0] - Endrelative[0]);
 		H = D * (dx + dy) + (D2 - 2 * D) * Math.min(dx, dy);
-		//H = Math.max(Math.abs(End.GetCol() - Start.GetCol()), Math.abs(End.GetRow() - Start.GetRow()));
-		//return H;
 		return Math.hypot(dx, dy);
 	}
 	
@@ -117,7 +198,6 @@ public class Main implements Runnable{
 				graph.getNode(Open.get(i).getId()).setAttribute("Fn", SetFn(graph.getNode(Open.get(i).getId())));
 				graph.getNode(Current.getId()).setAttribute("Hn", SetHn(graph.getNode(Current.getId()), graph.getNode(End.getId())));
 				graph.getNode(Current.getId()).setAttribute("Fn", SetFn(graph.getNode(Current.getId())));
-				//System.out.println("This the Fn back in the loop: "+ graph.getNode(Current.getId()).getNumber("Fn"));
 				double a = graph.getNode(Open.get(i).getId()).getNumber("Fn");
 				double b = graph.getNode(Current.getId()).getNumber("Fn");
 				if(a < b) {
@@ -136,23 +216,20 @@ public class Main implements Runnable{
 						+ HDist(graph.getNode(Current.getId()), graph.getNode(End.getId())));
 				//Node Previous = graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId());
 				Node Previous =  graph.getNode(Current.getId());
-				//while(!graph.getNode(((Node) graph.getNode(Current.getId()).getAttribute("Previous")).getId()).equals(graph.getNode(Initial.getId()))) {//Infinite Loop is here. Not always recognizing initial for some reason
-				//while(graph.getNode(Previous.getId()).getId() != graph.getNode(Initial.getId()).getId()){	
+				Node ColorTemp;
 				while(Previous.getAttribute("Parent") != Initial.getId()) {
-					//System.out.println("test "+ graph.getNode(Previous.getId()).getId() +" and "+ graph.getNode(Initial.getId()).getId());
 					Cost = Cost + graph.getNode(Previous.getId()).getNumber("Hn");
 					BestPath.push(graph.getNode(Previous.getId()));
-					//graph.getNode(Current.getId()).getEdgeBetween(graph.getNode(Previous.getId())).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 					graph.getNode(Previous.getId()).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 					//Previous =  graph.getNode(((Node) Previous.getAttribute("Previous")).getId());
+					ColorTemp = graph.getNode(Previous.getId());
 					Previous = graph.getNode((String) Previous.getAttribute("Parent"));
+					//graph.getNode(ColorTemp.getId()).getEdgeBetween(graph.getNode(Previous.getId())).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 					//System.out.println("Previous node is: "+Previous.getId());
-					//Current = graph.getNode(Previous.getId());
-//					if(Previous == null) {
-//						System.out.println("Previous is null");
-//						return graph.getNode(Temp.getId());
-//					}
 				}
+				ColorTemp = graph.getNode(Previous.getId());
+				Previous = graph.getNode((String) Previous.getAttribute("Parent"));
+				graph.getNode(ColorTemp.getId()).getEdgeBetween(graph.getNode(Previous.getId())).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
 				return graph.getNode(Temp.getId());
 			}
 			/*
@@ -173,7 +250,6 @@ public class Main implements Runnable{
 			Temp = graph.getNode(Open.get(TempIndex).getId());
 			Open.remove(graph.getNode(Current.getId()));
 			Closed.push(graph.getNode(Current.getId()));
-			//int NeighborCount = graph.getNode(Current.getId()).getDegree();
 			Node Neighbor;
 			Stream<Node> Neighborlist = graph.getNode(Current.getId()).neighborNodes();//Look into converting Stream to ArrayList
 			Iterator<Node> IT = Neighborlist.iterator();
@@ -183,7 +259,8 @@ public class Main implements Runnable{
 				Neighbor = IT.next();
 				if(Neighbor == null || Closed.contains(graph.getNode(Neighbor.getId()))) continue;
 				graph.getNode(Neighbor.getId()).setAttribute("Parent", Current.getId());
-				System.out.println("parent of Node "+Neighbor.getId()+" is "+graph.getNode(Neighbor.getId()).getAttribute("Parent"));
+				graph.getNode(Neighbor.getId()).setAttribute("Cost", SetHn(Current, Neighbor));
+				//System.out.println("parent of Node "+Neighbor.getId()+" is "+graph.getNode(Neighbor.getId()).getAttribute("Parent"));
 				double Gn = graph.getNode(Current.getId()).getNumber("Gn");
 				graph.getNode(Neighbor.getId()).setAttribute("Gn", Gn + HDist(graph.getNode(Current.getId()), graph.getNode(Neighbor.getId())));
 				if (Open.contains(graph.getNode(Neighbor.getId()))) {
@@ -198,11 +275,6 @@ public class Main implements Runnable{
 				}
 			}
 			Closed.push(graph.getNode(Current.getId()));
-			/*try {
-				TimeUnit.MILLISECONDS.sleep(60);
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-	        	}*/
 		}//end of Search
 		System.out.println("PathFind Failed");
 		return null;
@@ -231,121 +303,4 @@ public class Main implements Runnable{
 		return Hn + Gn;
 	}
 	
-	public void run(){//Main Method
-		Scanner scan = new Scanner(System.in);
-		while(true) {
-			Open.clear();
-			Closed.clear();
-			BestPath.clear();
-				System.out.print("Enter number of Nodes to be generated: ");
-				NodeCount = scan.nextInt();
-				RoomLayout.Main();
-				int z = 0;
-				while(z < Trials){
-					timeStart = System.currentTimeMillis();
-					Node Start = graph.getNode(0);
-					Node End = graph.getNode(NodeCount-1);
-					Node RCp = null;
-					Boolean EndFound = false;
-					Start.setAttribute("Hn", SetHn(graph.getNode(Start.getId()), graph.getNode(End.getId())));
-					Open.push(graph.getNode(Start.getId()));
-					//Open.push(graph.getNode(0));
-					graph.nodes().forEach(n ->{
-						graph.getNode(n.getId()).setAttribute("Hn", SetHn(graph.getNode(n.getId()), graph.getNode(End.getId())));//Sets Heuristic Values
-						if(graph.getNode(n.getId()).getNumber("ID") == 3) {
-							RC.push(graph.getNode(n.getId()));
-						}
-					});
-					RCp = graph.getNode(0);
-					Node Current = graph.getNode(0);
-					Node rc = null;
-					B = FullTank;
-					outer:
-						while(true) {//Main Loop to run through
-							System.out.println("Loop");
-							rc = graph.getNode(NextStation(graph.getNode(RCp.getId()), graph.getNode(End.getId())).getId());
-							if(graph.getNode(rc.getId()) == null) {
-								EndFound = false;
-								break outer;
-							}
-							graph.nodes().forEach(n ->{
-								n.setAttribute("Hn", SetHn(graph.getNode(n.getId()), graph.getNode(End.getId())));//Sets Heuristic Values
-							});
-							graph.getNode(Current.getId()).setAttribute("Cost", 0);
-							Current = graph.getNode(PathFind(graph.getNode(Current.getId()), graph.getNode(rc.getId())).getId()); //Gets the Next RC point
-							if(graph.getNode(Current.getId()) == null) {
-								EndFound = false;
-								break outer;
-							}
-							RCP.push(graph.getNode(RCp.getId()));
-							if(graph.getNode(rc.getId()).equals(graph.getNode(End.getId()))) {//Printing results section
-								graph.getNode(Start.getId()).setAttribute("ui.style", " fill-color: rgb(0,0,255);");
-								graph.getNode(End.getId()).setAttribute("ui.style", " fill-color: rgb(255,0,0);");
-								timeEnd = System.currentTimeMillis();
-								timeRun = timeEnd - timeStart;
-								System.out.println("Found End");
-								//System.out.println("Best Path Cost  = "+ BestPath.size());
-								System.out.println("Best Path Cost  = "+ graph.getNode(End.getId()).getNumber("Gn"));
-								System.out.println("Run Time = " + timeRun);
-								System.out.println("Stations Visted = "+StationCounter);
-								EndFound = true;
-								/*try { //For writing to data file
-									//System.out.println(results[0]+","+results[1]+","+results[2]);
-									pw.write(results[0]+","+results[1]+","+results[2]+"\n");
-								} catch (IOException e) {
-									// TODO Auto-generated catch block
-									e.printStackTrace();
-								}*/
-								break outer;
-							}
-							RCp = graph.getNode(rc.getId());
-							Current = graph.getNode(rc.getId());
-							StationCounter++;
-							RC.remove(RCindex);
-							B = FullTank;
-							Open.clear();
-							Closed.clear();
-							System.out.println("End of Main loop test");
-							try {
-								Thread.sleep(100);
-							} catch( InterruptedException e) {
-								e.printStackTrace();
-							}
-						}
-					RC.clear();
-					Closed.clear();
-					Open.clear();
-					RCP.clear();
-					BestPath.clear();
-					timeEnd = 0;
-					timeEnd = 0;
-					timeRun = 0;
-					StationCounter = 0;
-					TrialCounter++;
-					if(EndFound == false) {
-						System.out.println("No Solution");
-						z++;
-					}else {
-						//RoomLayot.FileClose();
-						z++;
-					}
-					/*for(int i = 0; i < Open.size(); i++) {
-					Open.pop();
-					}*/
-				}
-				/*try {
-					pw.close();
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}*/
-			//}
-			System.out.println("Enter 0 to quit or anything else to run it again");
-			int quit = scan.nextInt();
-			if (quit == 0) {
-				scan.close();
-				System.exit(0);
-			}
-		}
-	}
 }
