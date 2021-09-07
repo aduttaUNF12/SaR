@@ -27,7 +27,7 @@ public class generateGraphECA {
 					"text-size: 50;"+ "text-alignment: at-left;"+
 					"}" +
 					"node.astarSameCost {" +
-					"fill-color: red;" + "size: 10px;"+ "text-size: 20;"+
+					"fill-color: yellow;" + "size: 10px;"+ "text-size: 20;"+
 					"}"+
 					"node.dfs {" +
 					"fill-color: red;" + "size: 10px;"+ "text-size: 20;"+
@@ -71,7 +71,8 @@ public class generateGraphECA {
 		System.out.println("# charging stations visited with A* = "+(astarPath.size()-2));
 
 		// find the A* - same cost - path through the charging stations
-		//Path sameCostPath=findMinHopPath(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
+		Path sameCostPath=findMinHopPath(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
+		System.out.println("# charging stations visited with A* (unit cost edges) = "+(sameCostPath.size()-2));
 		
 		ArrayList<Node> dfsPath = findMinHopPathDFS(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
 		System.out.println("# charging stations visited with DFS = "+(dfsPath.size()-2));
@@ -110,7 +111,8 @@ public class generateGraphECA {
 			if(a.getId()!=start.getId() && a.getId()!=goal.getId())
 				g.getNode(a.getId()).setAttribute("ui.class", "astarSameCost");
 			//g.getNode(a.getId()).getEdgeBetween(g.getNode(b.getId())).setAttribute("ui.class", "astarSameCost");
-
+			//double weight = (Double) g.getNode(a.getId()).getEdgeBetween(g.getNode(b.getId())).getAttribute("weight");
+			//System.out.println("This edge weight is: "+g.getNode(a.getId()).getEdgeBetween(g.getNode(b.getId())).hasNumber("weight"));
 		}
 		return astarPath;
 	}
@@ -118,8 +120,7 @@ public class generateGraphECA {
 	private static ArrayList<Node> findMinHopPathDFS(Graph g, Node start, Node goal)  {
 		// TODO Auto-generated method stub
 		ArrayList<Node> path = new ArrayList<Node>();
-		Iterator<Node> dfs = g.getNode(start.getId()).getDepthFirstIterator();
-		int count = 0;
+		Iterator<Node> dfs = g.getNode(start.getId()).getBreadthFirstIterator();
 		Node previous = start;
 		while(dfs.hasNext()) {
 			Node n = dfs.next();
