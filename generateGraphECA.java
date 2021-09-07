@@ -2,6 +2,7 @@ package generateData;
 
 import static org.graphstream.ui.graphicGraph.GraphPosLengthUtils.nodePosition;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
@@ -26,6 +27,9 @@ public class generateGraphECA {
 					"text-size: 50;"+ "text-alignment: at-left;"+
 					"}" +
 					"node.astarSameCost {" +
+					"fill-color: red;" + "size: 10px;"+ "text-size: 20;"+
+					"}"+
+					"node.dfs {" +
 					"fill-color: red;" + "size: 10px;"+ "text-size: 20;"+
 					"}"+
 					"node.tsp {" +
@@ -64,9 +68,13 @@ public class generateGraphECA {
 		g.setAttribute("ui.stylesheet", styleSheet);
 		// find the A* path through the charging stations
 		Path astarPath = findMinCostPath(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
+		System.out.println("# charging stations visited with A* = "+(astarPath.size()-2));
 
-		// find the DFS path through the charging stations
-		Path sameCostPath=findMinHopPath(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
+		// find the A* - same cost - path through the charging stations
+		//Path sameCostPath=findMinHopPath(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
+		
+		ArrayList<Node> dfsPath = findMinHopPathDFS(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
+		System.out.println("# charging stations visited with DFS = "+(dfsPath.size()-2));
 		g.display();
 	}
 
@@ -105,6 +113,41 @@ public class generateGraphECA {
 
 		}
 		return astarPath;
+	}
+	
+	private static ArrayList<Node> findMinHopPathDFS(Graph g, Node start, Node goal)  {
+		// TODO Auto-generated method stub
+		ArrayList<Node> path = new ArrayList<Node>();
+		Iterator<Node> dfs = g.getNode(start.getId()).getDepthFirstIterator();
+		int count = 0;
+		Node previous = start;
+		while(dfs.hasNext()) {
+			Node n = dfs.next();
+			g.getNode(n.getId()).setAttribute("parent", previous.getId());
+			Iterator<Edge> ee = n.edges().iterator();
+			previous = n;
+			if(n.getId() == goal.getId()) {
+				break;
+			}
+//			while(ee.hasNext()) {
+//				Edge e = ee.next();
+//				g.getNode(e.getTargetNode().getId()).setAttribute("parent", n.getId());
+//			}
+		}
+		g.getNode(start.getId()).setAttribute("parent", "voila");
+		//System.out.println("Found the DFS target");
+		Node current = g.getNode(goal.getId());
+		//System.out.println("Start is: "+start.toString()+" Current is: "+current.toString()+" and parent= "+g.getNode((String) current.getAttribute("parent")).toString());
+		path.add(current);
+		while(g.getNode(current.getId()).getAttribute("parent")!="voila") {
+			current = g.getNode((String) current.getAttribute("parent"));
+			//System.out.println("Current is: "+current.toString()+" and parent is "+g.getNode(current.getId()).getAttribute("parent"));
+			if(current.getId()!=start.getId() && current.getId()!=goal.getId())
+				g.getNode(current.getId()).setAttribute("ui.class", "dfs");
+			path.add(g.getNode(current.getId()));
+		}
+		//System.out.println();
+		return path;
 	}
 
 	/* POI set generation for CGAL --> Brian's code
