@@ -1,3 +1,5 @@
+package generateData;
+
 import java.util.ArrayList;
 import com.google.ortools.Loader;
 import com.google.ortools.constraintsolver.*;
