@@ -1,7 +1,7 @@
 package generateData;
 
-import static org.graphstream.ui.graphicGraph.GraphPosLengthUtils.nodePosition;
-
+//import static org.graphstream.ui.graphicGraph.GraphPosLengthUtils.nodePosition;
+import static org.graphstream.algorithm.Toolkit.*;
 import java.awt.Point;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -89,8 +89,8 @@ public class search_rescue {
 		System.setProperty("org.graphstream.ui", "swing");
 		boolean display = false;
 		int box = 50; 
-		int[] chargeP = {10,15};
-		int[] budgetP = {15,20,25};
+		int[] chargeP = {5,7};
+		int[] budgetP = {8,10};
 		for(int envSize=100; envSize<=1000; envSize+=100) {
 			for(int bp=0; bp<budgetP.length; bp++) {
 				for(int cp=0; cp<chargeP.length; cp++) {
@@ -105,7 +105,7 @@ public class search_rescue {
 					for(int run=0; run<10; run++) {
 						// AG's local file name format --> "COVER_" + to_string(sizeOfSquare)  + "_" + to_string(n) + "_" + to_string(i) + ".txt";
 						String fileAG = new String("AGdata/COVER_env50_n"+envSize+"_run"+run+".txt");
-						double budget = box * Math.sqrt(2) * budgetP[bp];
+						double budget = (int) Math.ceil(box * Math.sqrt(2) * budgetP[bp]/100.00);
 						int chargeCount =(int) Math.ceil(box*box*chargeP[cp]/100.00);
 						boolean pathFound = false;
 						while(!pathFound) {
@@ -114,15 +114,15 @@ public class search_rescue {
 							//double budget = 2.5;
 							Point start = new Point(); start.setLocation(0.0, 0.0);
 							search_rescue sar = new search_rescue();
-							sar.chargers=generateChargePoints(chargeCount,box);
+							sar.chargers=sar.generateChargePoints(chargeCount,box);
 							ArrayList<Point> cov_points = sar.readAGOutput(fileAG);
 							double[][] DistanceMatrix = sar.createDistMat(cov_points, start);
 
 							TSP tspInstance = new TSP(DistanceMatrix);
 							ArrayList<Integer> tour = tspInstance.getSolution();
 							//System.out.println("TSP tour: " + tspInstance.getSolution());
-							sar.g=createFinalGraph(tour, cov_points, budget);
-							
+							sar.g=sar.createFinalGraph(tour, cov_points, budget);
+							//sar.g.display();
 							if(display) {
 								for (Node node : sar.g) {
 									node.setAttribute("ui.label", node.getId());
@@ -130,6 +130,7 @@ public class search_rescue {
 								sar.g.setAttribute("ui.stylesheet", styleSheet);
 								sar.g.getNode(String.valueOf(chargeCount)).setAttribute("ui.class", "start");
 							}
+							g=sar.g;
 							double xy1[]= {0,0};
 							double xy2[]={0,0};
 							pathFound = true;
@@ -139,23 +140,26 @@ public class search_rescue {
 //								xy1[1] = cov_points.get(tour.get(i)).getY();
 //								xy2[0] = cov_points.get(tour.get(i+1)).getX();
 //								xy2[1] = cov_points.get(tour.get(i+1)).getY();
-								Graph gr = sar.planPath(sar.g.getNode(TSPnodes.get(i).getId()), sar.g.getNode(TSPnodes.get(i+1).getId()), budget);
-								cost = cost + sar.calculateHeuristicEuclid(sar.g.getNode(TSPnodes.get(i).getId()), sar.g.getNode(TSPnodes.get(i+1).getId()));
-								if(gr==null) {
+								Path path = sar.planPath(sar.g.getNode(TSPnodes.get(i).getId()), sar.g.getNode(TSPnodes.get(i+1).getId()), budget);
+								if(path==null) {
 									pathFound=false;
 									break;
+								}
+								List<Node> pathNodes = path.getNodePath();
+								for(int p=0; p<pathNodes.size()-1;p++) {
+									cost = cost + sar.calculateHeuristicEuclid(sar.g.getNode(pathNodes.get(p).getId()), sar.g.getNode(pathNodes.get(p+1).getId()));
 								}
 							}
 							double endT = System.currentTimeMillis();
 							//System.out.println("Cost is: "+cost+ " and elapsed time is: "+(endT-startT));
-							int visitedCS = getVisitedCSCount(astarP,chargers);
+							int visitedCS = sar.getVisitedCSCount(astarP,chargers);
 							if(pathFound!=false) {
 								//System.out.println(astarP.toString());
 								writeData2File(endT-startT, cost, envSize, visitedCS, cp, bp,pw);
 								if(display)
 									sar.g.display();
 							}
-							clearAllData();
+							clearAllData(sar);
 						}// end of 1 valid run with this setting
 					}// end of ALL VALID runs for this setting
 					try {
@@ -192,13 +196,13 @@ public class search_rescue {
 
 
 
-	private static void clearAllData() {
+	private static void clearAllData(search_rescue sar) {
 		// TODO Auto-generated method stub
-		chargers.clear();
-		g.clear();
-		astarP.clear();
-		astarSameCostP.clear();
-		TSPnodes.clear();
+		sar.chargers.clear();
+		sar.g.clear();
+		sar.astarP.clear();
+		sar.astarSameCostP.clear();
+		sar.TSPnodes.clear();
 	}
 
 
@@ -227,6 +231,11 @@ public class search_rescue {
 					g.getNode(String.valueOf(i)).setAttribute("xyz", x, y, 0);
 					g.getNode(String.valueOf(i)).setAttribute("ui.class", "charger");
 				}
+				//add the start node
+//				g.addNode(String.valueOf(chargeCount));
+//				g.getNode(String.valueOf(chargeCount)).setAttribute("xyz", 0, 0, 0);
+//				g.getNode(String.valueOf(chargeCount)).setAttribute("ui.class", "tsp");
+//				TSPnodes.add(g.getNode(String.valueOf(chargeCount)));
 				//generate TSP locations and add them to G -- for now they are random, but we should read their location from a file.
 				for(int i=0; i< tour.size()-1; i++) {
 					g.addNode(String.valueOf(chargeCount+i));
@@ -249,6 +258,9 @@ public class search_rescue {
 								g.addEdge(String.valueOf(edgeCount), n1.getId(), n2.getId());
 								edgeCount++;
 							}
+							if(d>budget) {
+								//System.out.printf("d=%f\n",d);
+							}
 						}
 					}
 				}
@@ -262,8 +274,8 @@ public class search_rescue {
 		rand.setSeed(System.currentTimeMillis());
 		//generate random charge locations and add them to G.
 		for(int i=0; i<chargeCount;i++) {
-			double x = rand.nextDouble()*box;
-			double y = rand.nextDouble()*box;
+			double x = rand.nextDouble()*box - box/2;
+			double y = rand.nextDouble()*box - box/2;
 			Point p = new Point();
 			p.setLocation(x, y);
 			pp.add(p);
@@ -271,7 +283,7 @@ public class search_rescue {
 		return pp;
 	}
 
-	static Graph planPath(Node start, Node target, double budget) {
+	static Path planPath(Node start, Node target, double budget) {
 		int chargeCount = chargers.size();
 		boolean connectedG = false;
 		//Graph g = null;
@@ -283,7 +295,7 @@ public class search_rescue {
 			connectedG=true;
 		}
 		else {
-			System.out.println("No solution for this TSP pair could be found.");
+			System.out.println("The graph is disconnected.");
 			return null;
 		}
 		//}
@@ -306,7 +318,7 @@ public class search_rescue {
 		//ArrayList<Node> dfsPath = findMinHopPathDFS(g, g.getNode(chargeCount), g.getNode(chargeCount+1));
 		//System.out.println("# charging stations visited with DFS = "+(dfsPath.size()-2));
 		//g.display();
-		return g;
+		return astarPath;
 	}
 
 	// read the output of Anirban's coverage algorithm
@@ -381,6 +393,7 @@ public class search_rescue {
 			g.getNode(a.getId()).getEdgeBetween(g.getNode(b.getId())).setAttribute("ui.class", "astar");
 			//}
 		}
+		subG.clear();
 		return astarPath;
 	}
 
@@ -507,6 +520,9 @@ public class search_rescue {
 						g.addEdge(String.valueOf(edgeCount), n1.getId(), n2.getId());
 						edgeCount++;
 					}
+					if(d>budget) {
+						System.out.println("Not connected"+n1.toString()+" and "+n2.toString());
+					}
 				}
 			}
 		}
@@ -514,8 +530,15 @@ public class search_rescue {
 	}
 
 	static double calculateHeuristicEuclid(Node node, Node target) {
-		double xy1[] = Toolkit.nodePosition(node); 
-		double xy2[] = Toolkit.nodePosition(target); 
+		double xy1[] = nodePosition(node); 
+		double xy2[] = nodePosition(target); 
+		//double xy1[] = {0,0,0};
+		//double xy2[] = {0,0,0};
+		//xy1 = (double[]) node.getAttribute("xyz");
+		//System.out.println(node.getAttribute("xyz"));
+		//xy1[1] = (double) node.getAttribute("y");
+		//xy2 = (double[]) target.getAttribute("xyz");
+		//xy2[1] = (double) target.getAttribute("y");
 		double dx = Math.abs(xy2[0] - xy1[0]); 
 		double dy = Math.abs(xy2[1] - xy1[1]); 
 		double H = Math.pow(dx, 2) + Math.pow(dy, 2);
